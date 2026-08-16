@@ -1,0 +1,19 @@
+#cloud-config
+preserve_hostname: false
+hostname: icpr-endpoint
+timezone: UTC
+ssh_pwauth: false
+disable_root: true
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/99-icpr-hardening.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin no
+      PubkeyAuthentication yes
+
+runcmd:
+  - [install, -d, -o, root, -g, root, -m, "0750", /opt/icpr, /var/lib/icpr, /var/log/icpr]
+  - [systemctl, reload, ssh]

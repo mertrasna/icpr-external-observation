@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily iCPR measurement-evidence backup
+
+[Timer]
+OnCalendar=*-*-* 02:15:00 UTC
+RandomizedDelaySec=10m
+Persistent=true
+Unit=icpr-backup.service
+
+[Install]
+WantedBy=timers.target
+

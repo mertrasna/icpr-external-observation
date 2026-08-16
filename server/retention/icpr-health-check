@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+readonly ICPR_BACKUP_STATE_DIR="${ICPR_BACKUP_STATE_DIR:-/var/lib/icpr/backup-state}"
+readonly ICPR_MIN_FREE_KIB="${ICPR_MIN_FREE_KIB:-8388608}"
+readonly ICPR_MAX_BACKUP_AGE_SECONDS="${ICPR_MAX_BACKUP_AGE_SECONDS:-108000}"
+
+log() {
+  printf '[icpr-health] %s\n' "$*"
+}
+
+fail() {
+  printf '[icpr-health] ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+main() {
+  [[ ${EUID} -eq 0 ]] || fail "run this service as root"
+
+  systemctl is-enabled --quiet caddy.service || fail "caddy.service is not enabled"
+  systemctl is-active --quiet caddy.service || fail "caddy.service is not active"
+  systemctl is-enabled --quiet icpr-capture.service || fail "icpr-capture.service is not enabled"
+  systemctl is-active --quiet icpr-capture.service || fail "icpr-capture.service is not active"
+  systemctl is-enabled --quiet icpr-backup.timer || fail "icpr-backup.timer is not enabled"
+  systemctl is-active --quiet icpr-backup.timer || fail "icpr-backup.timer is not active"
+
+  [[ $(timedatectl show --property=Timezone --value) == "UTC" ]] || \
+    fail "timezone is not UTC"
+  [[ $(timedatectl show --property=NTPSynchronized --value) == "yes" ]] || \
+    fail "time synchronization is unhealthy"
+
+  local free_kib
+  free_kib="$(df -Pk / | awk 'NR == 2 {print $4}')"
+  [[ ${free_kib} =~ ^[0-9]+$ ]] || fail "could not determine free disk space"
+  ((free_kib >= ICPR_MIN_FREE_KIB)) || \
+    fail "root filesystem has less than $((ICPR_MIN_FREE_KIB / 1024 / 1024)) GiB free"
+
+  local last_success last_epoch now_epoch age
+  [[ -s ${ICPR_BACKUP_STATE_DIR}/last-success.utc ]] || \
+    fail "no successful backup timestamp exists"
+  last_success="$(<"${ICPR_BACKUP_STATE_DIR}/last-success.utc")"
+  last_epoch="$(date -u -d "${last_success}" +%s)" || fail "invalid backup timestamp"
+  now_epoch="$(date -u +%s)"
+  age=$((now_epoch - last_epoch))
+  ((age >= 0 && age <= ICPR_MAX_BACKUP_AGE_SECONDS)) || \
+    fail "last successful backup is ${age} seconds old"
+
+  sha256sum --check --status \
+    "${ICPR_BACKUP_STATE_DIR}/day0-verification.sha256" || \
+    fail "Day-0 verification manifest changed"
+
+  local identity_arn
+  identity_arn="$(aws sts get-caller-identity \
+    --region "${AWS_REGION:-eu-central-1}" \
+    --query Arn --output text)" || fail "instance-role credentials are unavailable"
+  [[ ${identity_arn} == *":assumed-role/icpr-measurement-upload/"* ]] || \
+    fail "unexpected AWS identity: ${identity_arn}"
+
+  date -u +%Y-%m-%dT%H:%M:%SZ >"${ICPR_BACKUP_STATE_DIR}/last-health.utc"
+  chmod 0600 "${ICPR_BACKUP_STATE_DIR}/last-health.utc"
+  log "healthy; last backup age=${age}s free_kib=${free_kib} identity=${identity_arn}"
+}
+
+main "$@"
+

@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "document_type": "icpr_protocol_diagnostic_configuration",
+  "configuration_version": "h3-required-example-v1",
+  "status": "frozen",
+  "example_only": true,
+  "diagnostic_id": "icpr-h3-required-example-v1",
+  "analysis_family": "h3_required",
+  "denominator_id": "h3-required-v1",
+  "time_basis": "UTC",
+  "campaign_isolation": {
+    "campaign_client_root": "experiment/client",
+    "diagnostic_client_root": "protocol-diagnostic/h3-required/client",
+    "diagnostic_derived_root": "protocol-diagnostic/h3-required/derived",
+    "diagnostic_reports_root": "protocol-diagnostic/h3-required/reports",
+    "diagnostic_runtime_root": "protocol-diagnostic/h3-required/runtime",
+    "diagnostic_reference_root": "protocol-diagnostic/h3-required/reference",
+    "campaign_outputs_must_not_be_modified": true,
+    "diagnostic_attempts_must_not_be_consumed_by_campaign_pairing": true,
+    "dual_protocol_attempts_must_not_be_consumed": true,
+    "campaign_pf_anchor": "com.apple/icpr-step9"
+  },
+  "campaign_completion_gate": {
+    "campaign_start_date_utc": "2000-01-01",
+    "campaign_end_date_utc": "2000-01-14",
+    "minimum_completed_campaign_days": 14,
+    "diagnostic_not_before_utc": "2000-01-15T00:00:00Z",
+    "attestation_path": "protocol-diagnostic/examples/reference/campaign-completion.json",
+    "require_post_campaign_archive_pull": true,
+    "require_final_pairing_zero_pending": true
+  },
+  "research_questions": {
+    "capability": "With new destination TCP/443 connections unavailable and UDP/443 functional, can the observed Safari and Private Relay path deliver a tagged request over a fresh destination-facing HTTP/3 connection?",
+    "coexistence": "Under the same origin constraint, can an attributable outer TCP/443 connection coexist with destination-facing HTTP/3 delivery when UDP/443 to one selected ingress is blocked?",
+    "inner_protocol_not_directly_observable": true
+  },
+  "fixed_conditions": {
+    "private_relay_state": "on",
+    "location_setting": "record_before_freezing",
+    "safari_client": "REPLACE_WITH_RECORDED_SAFARI_VERSION",
+    "access_network": "REPLACE_WITH_RECORDED_ACCESS_NETWORK",
+    "primary_analysis_family": "IPv4",
+    "freshness_method": "fully_quit_safari_and_restart_networkserviceproxy",
+    "ingress_group": "REPLACE_WITH_OBSERVED_OPERATOR",
+    "intended_ingress_ipv4": "192.0.2.20",
+    "intended_ingress_asn": 64496,
+    "ingress_routing_evidence_path": "protocol-diagnostic/examples/reference/ingress-routing-evidence.json",
+    "ingress_routing_evidence_sha256": "2afb1cc93d232f88a5177cf290523c0459afced7b7185d1d31d6923a20ff4615",
+    "required_destination_protocol": "HTTP/3.0"
+  },
+  "server": {
+    "hostname": "measurement.example.org",
+    "url_template": "https://measurement.example.org/probe/{run_id}",
+    "private_ipv4": "10.0.1.10",
+    "public_ipv4": "192.0.2.10",
+    "caddy_protocols": [
+      "h1",
+      "h2",
+      "h3"
+    ],
+    "server_root": "server/recovery-data",
+    "run_day_readiness_attestation_path": "protocol-diagnostic/examples/reference/run-day-http3-readiness.json",
+    "run_day_readiness_max_age_seconds": 86400,
+    "live_caddy_snapshot": {
+      "capture_method": "nonselective_active_log_byte_prefix_v1",
+      "ssh_target": "ubuntu@measurement.example.org",
+      "source_path": "/var/log/icpr/caddy/access.jsonl",
+      "output_root": "server/recovery-data/live-caddy-prefixes",
+      "require_nonselective_prefix": true,
+      "active_pcap_snapshot_forbidden": true
+    }
+  },
+  "origin_gate": {
+    "implementation": "dedicated_transient_nftables_table",
+    "family": "ip",
+    "private_ipv4": "10.0.1.10",
+    "transport": "tcp",
+    "destination_port": 443,
+    "input_chain_priority": -10,
+    "input_chain_policy": "accept",
+    "target_set": "blocked_targets",
+    "counter": "tcp443_dropped",
+    "timeout_seconds": 1800,
+    "minimum_remaining_seconds_per_slot": 180,
+    "independent_systemd_rollback_required": true,
+    "unchanged_services": [
+      "caddy",
+      "icpr-capture.service"
+    ],
+    "security_group_change_forbidden": true
+  },
+  "controls": {
+    "warmup_private_relay_state": "off",
+    "require_alt_svc_h3_evidence": true,
+    "require_untagged_safari_healthz_warmup": true,
+    "require_external_tcp_only_failure_with_counter_delta": true,
+    "require_pre_series_direct_http3_control": true,
+    "require_post_series_direct_http3_control": true,
+    "counted": false
+  },
+  "dns": {
+    "mask_hostnames": [
+      "mask.icloud.com",
+      "mask-h2.icloud.com"
+    ],
+    "shared_cname_target": "mask.apple-dns.net",
+    "origin_hostname": "measurement.example.org",
+    "recent_candidate_snapshot_path": "protocol-diagnostic/examples/reference/dns-candidates.json",
+    "recent_candidate_snapshot_sha256": "2f7a51ab52f8c16ab87ffd6dc45e57a9360f3fa527fc05cb5a7ab9ac45faf3d2",
+    "recent_campaign_candidate_lookback_days": 1,
+    "snapshot_names": [
+      "mask.icloud.com",
+      "mask-h2.icloud.com",
+      "mask.apple-dns.net",
+      "measurement.example.org"
+    ],
+    "run_day_snapshot_required": true,
+    "first_slot_snapshot_max_age_seconds": 86400,
+    "packet_capture_of_all_dns_forbidden": true
+  },
+  "pinning": {
+    "hosts_file": "/etc/hosts",
+    "cname_target": "mask.apple-dns.net",
+    "direct_hostnames": [
+      "mask.apple-dns.net",
+      "mask.icloud.com",
+      "mask-h2.icloud.com"
+    ],
+    "temporary_comment": "icpr-h3-required temporary",
+    "restore_byte_for_byte": true,
+    "restart_networkserviceproxy": true
+  },
+  "firewall": {
+    "anchor": "com.apple/icpr-protocol-diagnostic-v1",
+    "label": "icpr-protocol-diagnostic-v1-udp-block",
+    "blocked_rule_scope": "outbound IPv4 UDP destination port 443 to 192.0.2.20 only",
+    "block_tcp": false,
+    "block_global_udp_443": false,
+    "block_origin_udp_443": false,
+    "record_counters_after_load_and_before_cleanup": true,
+    "reset_only_states_to_intended_ingress": true
+  },
+  "capture": {
+    "snaplen_bytes": 256,
+    "promiscuous_mode": false,
+    "name_resolution": false,
+    "scope": "TCP/UDP port 443 involving the selected ingress, current relay candidates, or controlled origin public IPv4",
+    "include_origin_for_direct_bypass_detection": true,
+    "capture_all_https_forbidden": true
+  },
+  "timeouts": {
+    "browser_response_deadline_seconds": 90,
+    "operator_completion_grace_seconds": 600,
+    "maximum_attempts_per_slot": 2
+  },
+  "retry_policy": {
+    "allowed_only_for_codes": [
+      "CAPTURE_START_FAILED",
+      "CAPTURE_RUNTIME_FAILED",
+      "SAFARI_LAUNCH_NOT_ISSUED",
+      "RESPONSE_EVIDENCE_NOT_SAVED"
+    ],
+    "scientific_outcomes_never_retry": [
+      "success_http3",
+      "success_http2_integrity_contradiction",
+      "timeout",
+      "private_relay_unavailable",
+      "alternative_ingress",
+      "direct_bypass",
+      "multiple_destination_connections"
+    ],
+    "selective_backfill_forbidden": true
+  },
+  "acceptance": {
+    "permitted_classification": "destination_h3_required",
+    "blocked_classification": "outer_tcp_fallback_destination_h3_required",
+    "require_exactly_one_tagged_caddy_record": true,
+    "require_caddy_http_3": true,
+    "require_matching_fresh_server_quic_initial": true,
+    "require_same_day_apple_egress_match": true,
+    "require_egress_not_real_client_ip": true,
+    "require_unambiguous_client_server_pair": true,
+    "require_no_direct_mac_to_origin_contact": true,
+    "blocked_requires_positive_pf_counter_delta": true,
+    "blocked_requires_attributable_outer_tcp_443": true,
+    "alternative_udp_ingress_cannot_support_fallback_claim": true
+  },
+  "safety_stops": [
+    "campaign_completion_gate_not_ready",
+    "origin_gate_missing_changed_or_expired",
+    "dedicated_pf_anchor_not_empty",
+    "hosts_baseline_not_clean_or_not_restorable",
+    "server_evidence_unavailable",
+    "effective_pin_not_verified",
+    "ipv6_bypass_not_excluded",
+    "destination_observed_real_client_ip",
+    "unexpected_system_wide_network_effect",
+    "clock_or_evidence_integrity_unreliable"
+  ],
+  "instructions": "This uses documentation-only addresses and cannot be run live unchanged. Copy the profile, replace every study-specific field from fresh evidence, set example_only to false, and regenerate the configuration and plan hashes before a live run."
+}

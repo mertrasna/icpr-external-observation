@@ -1,0 +1,300 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+readonly NFT=/usr/sbin/nft
+readonly SYSTEMCTL=/usr/bin/systemctl
+readonly SYSTEMD_RUN=/usr/bin/systemd-run
+readonly PYTHON=/usr/bin/python3
+readonly MKTEMP=/usr/bin/mktemp
+readonly SHA256SUM=/usr/bin/sha256sum
+readonly INSTALLED_HELPER=/usr/local/sbin/icpr-h3-origin-gate
+readonly TIMEOUT_SECONDS=1800
+readonly SET_NAME=blocked_targets
+readonly COUNTER_NAME=tcp443_dropped
+
+json_error() {
+  local code=$1
+  local message=$2
+  "$PYTHON" - "$code" "$message" <<'PY'
+import json
+import sys
+print(json.dumps({"status": "error", "error_code": sys.argv[1], "message": sys.argv[2]}, sort_keys=True))
+PY
+}
+
+die() {
+  local code=$1
+  local message=$2
+  json_error "$code" "$message"
+  exit 2
+}
+
+[[ $# -eq 3 ]] || die usage \
+  "usage: icpr-h3-origin-gate {validate|arm|status|disarm|rollback} SESSION_ID PRIVATE_IPV4"
+readonly COMMAND=$1
+readonly SESSION_ID=$2
+readonly ORIGIN_IPV4=$3
+
+[[ "$SESSION_ID" =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$ ]] || \
+  die invalid_session_id "session ID must match YYYYMMDDTHHMMSSZ-8hex"
+IFS='.' read -r -a origin_octets <<<"$ORIGIN_IPV4"
+[[ ${#origin_octets[@]} -eq 4 ]] || \
+  die invalid_origin_ipv4 "origin must be one canonical private IPv4 address"
+for octet in "${origin_octets[@]}"; do
+  [[ "$octet" =~ ^(0|[1-9][0-9]{0,2})$ ]] && ((10#$octet <= 255)) || \
+    die invalid_origin_ipv4 "origin must be one canonical private IPv4 address"
+done
+if ! {
+  ((10#${origin_octets[0]} == 10)) ||
+  ((10#${origin_octets[0]} == 172 && 10#${origin_octets[1]} >= 16 && 10#${origin_octets[1]} <= 31)) ||
+  ((10#${origin_octets[0]} == 192 && 10#${origin_octets[1]} == 168))
+}; then
+  die invalid_origin_ipv4 "origin must be an RFC 1918 private IPv4 address"
+fi
+case "$COMMAND" in
+  validate|arm|status|disarm|rollback) ;;
+  *) die invalid_command "unsupported origin-gate command" ;;
+esac
+
+readonly TABLE_NAME="icpr_h3req_${SESSION_ID//-/_}"
+readonly TIMER_BASE="icpr-h3req-rollback-${SESSION_ID}"
+readonly TIMER_UNIT="${TIMER_BASE}.timer"
+readonly SERVICE_UNIT="${TIMER_BASE}.service"
+
+[[ ${EUID} -eq 0 ]] || die root_required "valid origin-gate operations require root"
+for executable in "$NFT" "$SYSTEMCTL" "$SYSTEMD_RUN" "$PYTHON" "$MKTEMP"; do
+  [[ -x "$executable" ]] || die missing_dependency "required executable is absent: $executable"
+done
+
+table_exists() {
+  "$NFT" list table ip "$TABLE_NAME" >/dev/null 2>&1
+}
+
+timer_loaded() {
+  local load_state
+  load_state=$("$SYSTEMCTL" show --property=LoadState --value "$TIMER_UNIT" 2>/dev/null) || \
+    return 1
+  [[ -n "$load_state" && "$load_state" != "not-found" ]]
+}
+
+services_ready() {
+  "$SYSTEMCTL" is-active --quiet caddy.service && \
+    "$SYSTEMCTL" is-active --quiet icpr-capture.service
+}
+
+write_base_batch() {
+  local output=$1
+  {
+    printf 'add table ip %s\n' "$TABLE_NAME"
+    printf 'add chain ip %s input { type filter hook input priority -10; policy accept; }\n' "$TABLE_NAME"
+    printf 'add set ip %s %s { type ipv4_addr; flags timeout; timeout %ss; }\n' \
+      "$TABLE_NAME" "$SET_NAME" "$TIMEOUT_SECONDS"
+    printf 'add counter ip %s %s\n' "$TABLE_NAME" "$COUNTER_NAME"
+    printf 'add rule ip %s input ip daddr @%s tcp dport 443 counter name %s drop comment "icpr-h3-required %s"\n' \
+      "$TABLE_NAME" "$SET_NAME" "$COUNTER_NAME" "$SESSION_ID"
+  } >"$output"
+}
+
+emit_status() {
+  local nft_json nft_text timer_active caddy_active capture_active
+  nft_json=$($MKTEMP /tmp/icpr-h3req-nft-json.XXXXXX)
+  nft_text=$($MKTEMP /tmp/icpr-h3req-nft-text.XXXXXX)
+  trap 'rm -f "${nft_json:-}" "${nft_text:-}"' RETURN
+  "$NFT" -j -a list table ip "$TABLE_NAME" >"$nft_json" || \
+    die gate_absent "origin-gate table is absent"
+  "$NFT" -nn -a list chain ip "$TABLE_NAME" input >"$nft_text" || \
+    die gate_unreadable "origin-gate chain is unreadable"
+  timer_active=false
+  caddy_active=false
+  capture_active=false
+  "$SYSTEMCTL" is-active --quiet "$TIMER_UNIT" && timer_active=true
+  "$SYSTEMCTL" is-active --quiet caddy.service && caddy_active=true
+  "$SYSTEMCTL" is-active --quiet icpr-capture.service && capture_active=true
+  "$PYTHON" - \
+    "$SESSION_ID" "$TABLE_NAME" "$TIMER_UNIT" "$ORIGIN_IPV4" \
+    "$timer_active" "$caddy_active" "$capture_active" \
+    "$nft_json" "$nft_text" <<'PY'
+import json
+import pathlib
+import re
+import sys
+
+session_id, table_name, timer_unit, origin = sys.argv[1:5]
+timer_active, caddy_active, capture_active = [value == "true" for value in sys.argv[5:8]]
+document = json.loads(pathlib.Path(sys.argv[8]).read_text())
+text = pathlib.Path(sys.argv[9]).read_text()
+objects = document.get("nftables", [])
+
+def count(kind):
+    return sum(1 for item in objects if isinstance(item, dict) and kind in item)
+
+def walk(value):
+    yield value
+    if isinstance(value, dict):
+        for child in value.values():
+            yield from walk(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from walk(child)
+
+chain = next((item["chain"] for item in objects if isinstance(item, dict)
+              and isinstance(item.get("chain"), dict)
+              and item["chain"].get("name") == "input"), {})
+counter = next((item["counter"] for item in objects if isinstance(item, dict)
+                and isinstance(item.get("counter"), dict)
+                and item["counter"].get("name") == "tcp443_dropped"), {})
+serialized = json.dumps(document, sort_keys=True)
+target_present = origin in serialized
+remaining_ms = 0
+for item in walk(document):
+    if isinstance(item, dict) and item.get("val") == origin:
+        candidate = item.get("expires", item.get("timeout", 0))
+        if isinstance(candidate, int):
+            remaining_ms = max(remaining_ms, candidate)
+
+rule_lines = []
+for raw in text.splitlines():
+    normalized = " ".join(raw.strip().split())
+    if "tcp dport" not in normalized:
+        continue
+    normalized = re.sub(r" # handle [0-9]+$", "", normalized)
+    normalized = normalized.split(' comment "', 1)[0]
+    normalized = normalized.replace(
+        'counter name "tcp443_dropped"',
+        'counter name tcp443_dropped',
+    )
+    rule_lines.append(normalized)
+expected_rule = "ip daddr @blocked_targets tcp dport 443 counter name tcp443_dropped drop"
+exact = expected_rule if rule_lines == [expected_rule] else " | ".join(rule_lines)
+
+priority = chain.get("prio", chain.get("priority", 0))
+if isinstance(priority, str):
+    priority = int(priority)
+result = {
+    "session_id": session_id,
+    "table_name": table_name,
+    "table_count": count("table"),
+    "chain_count": count("chain"),
+    "set_count": count("set"),
+    "counter_count": count("counter"),
+    "rule_count": count("rule"),
+    "chain_priority": priority,
+    "chain_policy": str(chain.get("policy", "")),
+    "target_present": target_present,
+    "target_ipv4": origin if target_present else "",
+    "remaining_seconds": max(0, remaining_ms),
+    "packets": int(counter.get("packets", 0)),
+    "bytes": int(counter.get("bytes", 0)),
+    "timer_active": timer_active,
+    "timer_unit": timer_unit,
+    "caddy_active": caddy_active,
+    "capture_active": capture_active,
+    "exact_rule": exact,
+}
+print(json.dumps(result, sort_keys=True))
+PY
+  rm -f "$nft_json" "$nft_text"
+  trap - RETURN
+}
+
+validate_gate() {
+  table_exists && die stale_gate "session-named origin-gate table already exists"
+  timer_loaded && die stale_timer "session-named rollback unit already exists"
+  services_ready || die service_unavailable "Caddy and continuous capture must be active"
+  local batch digest
+  batch=$($MKTEMP /tmp/icpr-h3req-validate.XXXXXX)
+  trap 'rm -f "${batch:-}"' RETURN
+  write_base_batch "$batch"
+  "$NFT" --check -f "$batch" >/dev/null || die nft_validation_failed "nftables rejected the exact gate batch"
+  digest=$($SHA256SUM "$batch" | /usr/bin/awk '{print $1}')
+  "$PYTHON" - "$SESSION_ID" "$TABLE_NAME" "$digest" <<'PY'
+import json
+import sys
+print(json.dumps({
+    "status": "validated",
+    "session_id": sys.argv[1],
+    "table_name": sys.argv[2],
+    "nft_batch_sha256": sys.argv[3],
+    "mutated": False,
+}, sort_keys=True))
+PY
+  rm -f "$batch"
+  trap - RETURN
+}
+
+arm_gate() {
+  table_exists && die stale_gate "session-named origin-gate table already exists"
+  timer_loaded && die stale_timer "session-named rollback unit already exists"
+  services_ready || die service_unavailable "Caddy and continuous capture must be active"
+  [[ -x "$INSTALLED_HELPER" ]] || \
+    die helper_not_installed "root helper must be installed at /usr/local/sbin/icpr-h3-origin-gate"
+  local batch
+  batch=$($MKTEMP /tmp/icpr-h3req-arm.XXXXXX)
+  trap 'rm -f "${batch:-}"' RETURN
+  write_base_batch "$batch"
+  "$NFT" --check -f "$batch" >/dev/null || die nft_validation_failed "nftables rejected the exact gate batch"
+  "$NFT" -f "$batch" || die nft_apply_failed "unable to create the dedicated origin-gate table"
+  if ! "$SYSTEMD_RUN" --quiet --unit="$TIMER_BASE" --on-active="${TIMEOUT_SECONDS}s" \
+      --timer-property=AccuracySec=1s --property=Type=oneshot \
+      "$INSTALLED_HELPER" rollback "$SESSION_ID" "$ORIGIN_IPV4"; then
+    "$NFT" delete table ip "$TABLE_NAME" >/dev/null 2>&1 || true
+    die timer_arm_failed "independent rollback timer could not be armed"
+  fi
+  if ! "$SYSTEMCTL" is-active --quiet "$TIMER_UNIT"; then
+    "$NFT" delete table ip "$TABLE_NAME" >/dev/null 2>&1 || true
+    "$SYSTEMCTL" stop "$TIMER_UNIT" "$SERVICE_UNIT" >/dev/null 2>&1 || true
+    die timer_inactive "independent rollback timer is not active"
+  fi
+  if ! "$NFT" add element ip "$TABLE_NAME" "$SET_NAME" \
+      "{ $ORIGIN_IPV4 timeout ${TIMEOUT_SECONDS}s }"; then
+    "$NFT" delete table ip "$TABLE_NAME" >/dev/null 2>&1 || true
+    "$SYSTEMCTL" stop "$TIMER_UNIT" "$SERVICE_UNIT" >/dev/null 2>&1 || true
+    die target_insert_failed "origin target could not be inserted after timer activation"
+  fi
+  rm -f "$batch"
+  trap - RETURN
+  emit_status
+}
+
+rollback_gate() {
+  if table_exists; then
+    "$NFT" delete element ip "$TABLE_NAME" "$SET_NAME" "{ $ORIGIN_IPV4 }" \
+      >/dev/null 2>&1 || true
+  fi
+  "$PYTHON" - "$SESSION_ID" "$TABLE_NAME" <<'PY'
+import json
+import sys
+print(json.dumps({"status": "rolled_back", "session_id": sys.argv[1],
+                  "table_name": sys.argv[2], "target_removed": True}, sort_keys=True))
+PY
+}
+
+disarm_gate() {
+  table_exists || die gate_absent "origin-gate table is absent"
+  local final_status
+  final_status=$(emit_status)
+  "$NFT" delete element ip "$TABLE_NAME" "$SET_NAME" "{ $ORIGIN_IPV4 }" \
+    >/dev/null 2>&1 || true
+  "$NFT" delete table ip "$TABLE_NAME" || die table_delete_failed "dedicated table could not be deleted"
+  "$SYSTEMCTL" stop "$TIMER_UNIT" "$SERVICE_UNIT" >/dev/null 2>&1 || true
+  "$SYSTEMCTL" reset-failed "$TIMER_UNIT" "$SERVICE_UNIT" >/dev/null 2>&1 || true
+  table_exists && die table_delete_failed "dedicated table remains after disarm"
+  "$PYTHON" - "$final_status" <<'PY'
+import json
+import sys
+print(json.dumps({
+    "status": "disarmed",
+    "final_gate_status": json.loads(sys.argv[1]),
+    "table_absent": True,
+    "target_removed": True,
+}, sort_keys=True))
+PY
+}
+
+case "$COMMAND" in
+  validate) validate_gate ;;
+  arm) arm_gate ;;
+  status) emit_status ;;
+  disarm) disarm_gate ;;
+  rollback) rollback_gate ;;
+esac

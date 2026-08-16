@@ -1,0 +1,35 @@
+[Unit]
+Description=iCPR disk, backup, service and identity health check
+Documentation=file:/opt/icpr/retention/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+UMask=0077
+EnvironmentFile=/etc/icpr/backup.env
+Environment=HOME=/var/lib/icpr/backup-state
+Environment=AWS_SHARED_CREDENTIALS_FILE=/dev/null
+Environment=AWS_CONFIG_FILE=/dev/null
+UnsetEnvironment=AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_PROFILE
+ExecStart=/usr/local/libexec/icpr-health-check
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/icpr/backup-state
+RestrictAddressFamilies=AF_UNIX AF_INET
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+

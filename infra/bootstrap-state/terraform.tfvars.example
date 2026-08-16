@@ -1,0 +1,9 @@
+aws_region = "eu-central-1"
+resource_name_prefix = "replace-with-unique-prefix"
+
+project_tags = {
+  Environment = "bootstrap"
+  ManagedBy   = "Terraform"
+  Project     = "iCPR"
+  Purpose     = "TerraformRemoteState"
+}

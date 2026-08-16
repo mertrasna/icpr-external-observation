@@ -1,0 +1,54 @@
+{
+	servers {
+		protocols h1 h2 h3
+	}
+}
+
+__ICPR_HOSTNAME__ {
+	log {
+		output file /var/log/icpr/caddy/access.jsonl {
+			mode 0640
+			roll_size 100MiB
+			roll_at 00:00
+			roll_keep 0
+			roll_keep_for 744h
+		}
+		format json
+	}
+
+	@probe_get {
+		method GET
+		path_regexp probe ^/probe/([A-Za-z0-9._-]{1,128})$
+	}
+	handle @probe_get {
+		log_append run_id {re.probe.1}
+		log_append request_uuid {http.request.uuid}
+		header Content-Type application/json
+		header Cache-Control no-store
+		respond `{"run_id":"{re.probe.1}","server_utc":"{time.now}","server_unix_ms":{time.now.unix_ms},"remote_ip":"{http.request.remote.host}","remote_port":"{http.request.remote.port}","http_protocol":"{http.request.proto}","request_host":"{http.request.host}","request_uri":"{http.request.uri}","request_uuid":"{http.request.uuid}"}` 200
+	}
+
+	@probe_path path_regexp probe_path ^/probe/[A-Za-z0-9._-]{1,128}$
+	handle @probe_path {
+		header Allow GET
+		respond 405
+	}
+
+	@health_get {
+		method GET
+		path /healthz
+	}
+	handle @health_get {
+		respond "ok\n" 200
+	}
+
+	@health_path path /healthz
+	handle @health_path {
+		header Allow GET
+		respond 405
+	}
+
+	handle {
+		respond 404
+	}
+}

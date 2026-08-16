@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "document_type": "icpr_protocol_diagnostic_plan",
+  "plan_version": "v2",
+  "status": "frozen",
+  "example_only": true,
+  "created_utc": "2030-01-01T00:00:00Z",
+  "diagnostic_id": "icpr-dual-protocol-example-v2",
+  "configuration_path": "protocol-diagnostic/examples/dual-protocol-config.json",
+  "configuration_sha256": "8ef1a0fcf1641433a020420fdd53cf777a6d569e1d405a2da2091c0764b2e034",
+  "planned_observations": 10,
+  "maximum_attempts_per_slot": 2,
+  "replacement_trials_forbidden": true,
+  "selective_backfill_forbidden": true,
+  "fixed_conditions": {
+    "private_relay_state": "on",
+    "location_setting": "record_before_freezing",
+    "ingress_group": "REPLACE_WITH_OBSERVED_OPERATOR",
+    "intended_ingress_ipv4": "192.0.2.20",
+    "intended_ingress_asn": 64496,
+    "destination_hostname": "measurement.example.org",
+    "freshness_method": "fully_quit_safari_and_restart_networkserviceproxy",
+    "pin_scope": "direct hosts override for mask.apple-dns.net, mask.icloud.com, and mask-h2.icloud.com"
+  },
+  "slots": [
+    {
+      "slot_id": "protocol-v2-001",
+      "sequence_number": 1,
+      "condition": "udp_permitted"
+    },
+    {
+      "slot_id": "protocol-v2-002",
+      "sequence_number": 2,
+      "condition": "udp_blocked"
+    },
+    {
+      "slot_id": "protocol-v2-003",
+      "sequence_number": 3,
+      "condition": "udp_permitted"
+    },
+    {
+      "slot_id": "protocol-v2-004",
+      "sequence_number": 4,
+      "condition": "udp_blocked"
+    },
+    {
+      "slot_id": "protocol-v2-005",
+      "sequence_number": 5,
+      "condition": "udp_permitted"
+    },
+    {
+      "slot_id": "protocol-v2-006",
+      "sequence_number": 6,
+      "condition": "udp_blocked"
+    },
+    {
+      "slot_id": "protocol-v2-007",
+      "sequence_number": 7,
+      "condition": "udp_permitted"
+    },
+    {
+      "slot_id": "protocol-v2-008",
+      "sequence_number": 8,
+      "condition": "udp_blocked"
+    },
+    {
+      "slot_id": "protocol-v2-009",
+      "sequence_number": 9,
+      "condition": "udp_permitted"
+    },
+    {
+      "slot_id": "protocol-v2-010",
+      "sequence_number": 10,
+      "condition": "udp_blocked"
+    }
+  ],
+  "instructions": "Copy and freeze this plan only after the matching configuration has been customised and hash-finalised."
+}

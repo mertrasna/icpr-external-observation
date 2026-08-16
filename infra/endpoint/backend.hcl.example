@@ -1,0 +1,6 @@
+bucket              = "REPLACE_WITH_BOOTSTRAP_BUCKET_NAME"
+key                 = "icpr-endpoint/terraform.tfstate"
+region              = "eu-central-1"
+encrypt             = true
+use_lockfile        = true
+allowed_account_ids = ["REPLACE_WITH_AWS_ACCOUNT_ID"]

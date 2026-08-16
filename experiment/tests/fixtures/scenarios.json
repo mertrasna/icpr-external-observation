@@ -1,0 +1,13 @@
+{
+  "valid_quic": {"transport": "udp", "expected_disposition": "accepted", "expected_protocol": "http3_preserved"},
+  "valid_tcp": {"transport": "tcp", "expected_disposition": "accepted", "expected_protocol": "tcp_downgrade"},
+  "E01": {"transport": "udp", "mutation": "no_server", "expected_exclusion": "E01_NO_SERVER_OBSERVATION"},
+  "E02": {"transport": "udp", "mutation": "multiple_server_flows", "expected_exclusion": "E02_MULTIPLE_SERVER_CONNECTIONS"},
+  "E03": {"transport": "udp", "mutation": "no_fresh_flow", "expected_exclusion": "E03_NO_FRESH_FLOW"},
+  "E04": {"transport": "udp", "mutation": "wrong_ingress", "expected_exclusion": "E04_WRONG_OR_UNKNOWN_INGRESS"},
+  "E05": {"transport": "udp", "mutation": "real_ip", "expected_exclusion": "E05_REAL_IP_AT_DESTINATION"},
+  "E06": {"transport": "udp", "mutation": "egress_not_in_feed", "expected_exclusion": "E06_EGRESS_NOT_IN_FEED"},
+  "E07": {"transport": "udp", "mutation": "corrupt_hash", "expected_exclusion": "E07_CLOCK_OR_LOG_CORRUPTION"},
+  "E08": {"transport": "udp", "mutation": "condition_changed", "expected_exclusion": "E08_CONDITION_CHANGED"}
+}
+

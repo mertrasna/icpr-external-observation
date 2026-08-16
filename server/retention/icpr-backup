@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+: "${ICPR_BACKUP_BUCKET:?ICPR_BACKUP_BUCKET is required}"
+readonly ICPR_BACKUP_BUCKET
+readonly AWS_REGION="${AWS_REGION:-eu-central-1}"
+readonly ICPR_BACKUP_PREFIX="${ICPR_BACKUP_PREFIX:-endpoint}"
+readonly ICPR_BACKUP_STATE_DIR="${ICPR_BACKUP_STATE_DIR:-/var/lib/icpr/backup-state}"
+readonly ICPR_LOCK_FILE="${ICPR_LOCK_FILE:-/run/icpr/backup.lock}"
+CURRENT_TEMP=""
+
+log() {
+  printf '[icpr-backup] %s\n' "$*"
+}
+
+fail() {
+  printf '[icpr-backup] ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+cleanup() {
+  [[ -z ${CURRENT_TEMP} ]] || rm -f -- "${CURRENT_TEMP}"
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1"
+}
+
+is_capture_file_open() {
+  local candidate=$1
+  local capture_pid fd target
+  capture_pid="$(systemctl show --property=MainPID --value icpr-capture.service)"
+  [[ ${capture_pid} =~ ^[1-9][0-9]*$ ]] || return 1
+
+  for fd in "/proc/${capture_pid}/fd/"*; do
+    [[ -e ${fd} ]] || continue
+    target="$(readlink -f -- "${fd}" 2>/dev/null || true)"
+    [[ ${target} == "${candidate}" ]] && return 0
+  done
+
+  return 1
+}
+
+upload_file() {
+  local source=$1
+  local category=$2
+  local filename before_hash after_hash object_key marker_id marker sidecar
+
+  filename="$(basename -- "${source}")"
+  [[ ${filename} =~ ^[A-Za-z0-9._-]+$ ]] || \
+    fail "unsafe archive filename: ${filename}"
+
+  before_hash="$(sha256sum -- "${source}" | awk '{print $1}')"
+  object_key="${ICPR_BACKUP_PREFIX}/archive/${category}/${before_hash}/${filename}"
+  marker_id="$(printf '%s' "${object_key}" | sha256sum | awk '{print $1}')"
+  marker="${ICPR_BACKUP_STATE_DIR}/uploaded/${marker_id}"
+
+  if [[ -f ${marker} ]]; then
+    log "already archived ${category}/${filename}"
+    return
+  fi
+
+  CURRENT_TEMP="$(mktemp "${ICPR_BACKUP_STATE_DIR}/tmp/sha256.XXXXXX")"
+  sidecar="${CURRENT_TEMP}"
+  printf '%s  %s\n' "${before_hash}" "${filename}" >"${sidecar}"
+
+  log "uploading ${category}/${filename}"
+  aws s3 cp \
+    "${source}" "s3://${ICPR_BACKUP_BUCKET}/${object_key}" \
+    --region "${AWS_REGION}" \
+    --sse AES256 \
+    --only-show-errors
+
+  after_hash="$(sha256sum -- "${source}" | awk '{print $1}')"
+  [[ ${after_hash} == "${before_hash}" ]] || \
+    fail "source changed while being archived: ${source}"
+
+  aws s3 cp \
+    "${sidecar}" "s3://${ICPR_BACKUP_BUCKET}/${object_key}.sha256" \
+    --region "${AWS_REGION}" \
+    --sse AES256 \
+    --only-show-errors
+
+  install -o root -g root -m 0600 /dev/null "${marker}"
+  rm -f -- "${sidecar}"
+  CURRENT_TEMP=""
+}
+
+archive_closed_logs() {
+  local source
+  while IFS= read -r -d '' source; do
+    upload_file "${source}" caddy-logs
+  done < <(
+    find /var/log/icpr/caddy -maxdepth 1 -type f \
+      ! -name 'access.jsonl' -print0
+  )
+}
+
+archive_closed_pcaps() {
+  local source canonical
+  while IFS= read -r -d '' source; do
+    canonical="$(readlink -f -- "${source}")"
+    if is_capture_file_open "${canonical}"; then
+      log "skipping active capture $(basename -- "${source}")"
+      continue
+    fi
+    upload_file "${source}" pcaps
+  done < <(
+    find /var/lib/icpr/pcap -maxdepth 1 -type f -name '*.pcapng' -print0
+  )
+}
+
+archive_manifests() {
+  local source
+  while IFS= read -r -d '' source; do
+    upload_file "${source}" manifests
+  done < <(
+    find /var/lib/icpr/manifests -maxdepth 1 -type f -print0
+  )
+}
+
+main() {
+  [[ ${EUID} -eq 0 ]] || fail "run this service as root"
+
+  local command
+  for command in aws awk basename find flock install mktemp readlink sha256sum systemctl; do
+    require_command "${command}"
+  done
+
+  install -d -o root -g root -m 0700 \
+    "${ICPR_BACKUP_STATE_DIR}" \
+    "${ICPR_BACKUP_STATE_DIR}/tmp" \
+    "${ICPR_BACKUP_STATE_DIR}/uploaded"
+
+  exec 9>"${ICPR_LOCK_FILE}"
+  flock -n 9 || fail "another backup is already running"
+  trap cleanup EXIT
+
+  archive_closed_logs
+  archive_closed_pcaps
+  archive_manifests
+
+  CURRENT_TEMP="$(mktemp "${ICPR_BACKUP_STATE_DIR}/last-success.XXXXXX")"
+  date -u +%Y-%m-%dT%H:%M:%SZ >"${CURRENT_TEMP}"
+  install -o root -g root -m 0600 \
+    "${CURRENT_TEMP}" "${ICPR_BACKUP_STATE_DIR}/last-success.utc"
+  rm -f -- "${CURRENT_TEMP}"
+  CURRENT_TEMP=""
+
+  log "backup completed successfully"
+}
+
+main "$@"
+

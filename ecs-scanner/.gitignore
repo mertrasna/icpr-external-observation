@@ -1,0 +1,34 @@
+# Python and local tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# OS and editor files
+.DS_Store
+*.swp
+*.swo
+
+# Local configuration and credentials
+.env
+.env.*
+*.key
+*.pem
+
+# Downloaded or generated scan inputs
+ecs_sources.txt
+routeviews-*.pfx2as.gz
+
+# Scan outputs
+full_results/
+validation_results/
+validation_streaming_results/
+results.csv
+unique_ingress_ips.txt
+summary.txt
+*.log
+
+# Scratch data
+/prototypes/
+/collections/
+/tmp/

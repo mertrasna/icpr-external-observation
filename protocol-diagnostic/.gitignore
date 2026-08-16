@@ -1,0 +1,66 @@
+# Live measurement evidence and machine-local state.
+/client/*
+!/client/.gitignore
+/derived/*
+!/derived/.gitignore
+/reports/*
+!/reports/.gitignore
+/runtime/*
+!/runtime/.gitignore
+/server/*
+!/server/.gitignore
+/local/
+
+# Equivalent evidence trees used by the H3-required diagnostic.
+/h3-required/client/
+/h3-required/derived/
+/h3-required/reports/
+/h3-required/runtime/
+/h3-required/server/
+
+# Incomplete one-observation response-probe draft. Its frozen configuration and
+# plan were never created, so it is not part of the supported public release.
+/h3-response-probe/
+/h3-response-probe-diag
+/tests/test_h3_response_probe.py
+
+# Raw acquisition inputs. Keep reviewed derived CSV tables elsewhere.
+/egress-*.csv
+**/apple-egress.csv
+**/apple-egress.csv.sha256
+
+# Live reference artifacts may contain client identifiers, local absolute paths,
+# complete hosts-file snapshots, or destination responses. Reusable synthetic
+# fixtures live under examples/ instead.
+/reference/
+/h3-required/reference/
+**/operator-notes/
+**/response.json
+**/response.json.sha256
+
+# Packet, application, and command logs are evidence rather than source.
+*.pcap
+*.pcapng
+*.har
+*.jsonl
+*.log
+*.stderr
+*.stdout
+
+# Local Python/editor state.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.DS_Store
+*.swp
+*.swo
+
+# Frozen configurations, plans, reference captures, and the historical
+# operator runbook belong to the private study archive. The public methods
+# repository uses the complete neutral profiles under examples/ instead.
+/config/
+/manifests/
+/h3-required/config/
+/h3-required/manifests/
+/OPERATOR_RUNBOOK_V1.md

@@ -1,0 +1,19 @@
+# Local backend configuration
+backend.hcl
+
+# Terraform working data, state, and plans
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+crash.*.log
+
+# Private variable files
+*.tfvars
+*.tfvars.json
+!terraform.tfvars.example
+
+# Preserve dependency selections
+!.terraform.lock.hcl

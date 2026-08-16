@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "iCPR External Observation Methods"
+type: software
+authors:
+  - family-names: "Rasna"
+    given-names: "Mert"
+abstract: >-
+  Reusable methods for investigating Apple iCloud Private Relay through
+  egress-catalogue analysis, DNS-derived ingress discovery, controlled browser
+  measurements, and protocol diagnostics.
+license: MIT

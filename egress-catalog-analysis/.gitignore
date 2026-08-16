@@ -1,0 +1,19 @@
+.venv/
+/snapshots/
+*.csv
+!examples/snapshots/*.csv
+*.pdf
+*.png
+.claude/
+
+# Local study narrative and frozen input manifests are not part of the
+# reusable methods repository.
+/FINDINGS.md
+/HANDOFF.md
+/snapshot_manifest.csv
+/data/MANIFEST.sha256
+
+# Large reproducible BGP lookup inputs
+data/*.bz2
+data/*.dat
+data/asnames_*.json

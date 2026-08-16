@@ -1,0 +1,269 @@
+{
+  "schema_version": 1,
+  "config_version": "REPLACE_WITH_FROZEN_CONFIG_VERSION",
+  "configuration_status": "template",
+  "time_basis": "UTC",
+  "primary_analysis_family": "IPv4",
+  "server": {
+    "hostname": "probe.example.org",
+    "url_template": "https://probe.example.org/probe/{run_id}",
+    "private_ipv4": "10.0.0.10"
+  },
+  "private_relay_states": [
+    "off_control",
+    "on"
+  ],
+  "location_settings": [
+    "maintain_general_location",
+    "country_and_time_zone"
+  ],
+  "ingress_groups": [
+    "unpinned",
+    "akamai",
+    "apple_as714"
+  ],
+  "freshness": {
+    "measurement_unit": "one_newly_established_proxied_destination_facing_connection",
+    "tcp": "initial_syn_without_ack",
+    "quic": "quic_initial_on_selected_5tuple_with_dcid_evolution_preserved",
+    "run_id_is_not_freshness_proof": true,
+    "reused_client_ingress_tunnel_is_acceptable": true,
+    "outer_tunnel_freshness_must_not_be_claimed_without_packet_evidence": true,
+    "pilot_ladder": [
+      "A_new_tab_or_private_window_after_idle_or_close",
+      "B_fully_quit_and_relaunch_safari",
+      "C_restart_networkserviceproxy",
+      "D_toggle_private_relay"
+    ],
+    "pilot_minimum_repeated_fresh_accepts": 3,
+    "selected_method": null
+  },
+  "acceptance_rules": [
+    "exactly_one_attributable_server_connection",
+    "fresh_tcp_syn_or_qualifying_quic_initial",
+    "server_source_in_same_day_apple_egress_feed",
+    "actual_ingress_observed_in_mac_pcap",
+    "pinned_run_contacted_intended_ingress",
+    "complete_client_server_and_utc_metadata",
+    "unambiguous_one_to_one_pair"
+  ],
+  "exclusions": {
+    "E01_NO_SERVER_OBSERVATION": "no matching server request, log, or pcap event",
+    "E02_MULTIPLE_SERVER_CONNECTIONS": "retries or connection ambiguity prevent one-to-one attribution",
+    "E03_NO_FRESH_FLOW": "no TCP SYN without ACK or qualifying QUIC Initial",
+    "E04_WRONG_OR_UNKNOWN_INGRESS": "the intended pin was not observed, or directly justified ingress evidence is absent or ambiguous",
+    "E05_REAL_IP_AT_DESTINATION": "destination observed the client real IP",
+    "E06_EGRESS_NOT_IN_FEED": "source is absent from the contemporaneous Apple egress feed",
+    "E07_CLOCK_OR_LOG_CORRUPTION": "chronology or evidence integrity cannot be trusted",
+    "E08_CONDITION_CHANGED": "location, network, firewall, pin, or software condition changed"
+  },
+  "exclusion_precedence": [
+    "E07_CLOCK_OR_LOG_CORRUPTION",
+    "E08_CONDITION_CHANGED",
+    "E01_NO_SERVER_OBSERVATION",
+    "E02_MULTIPLE_SERVER_CONNECTIONS",
+    "E05_REAL_IP_AT_DESTINATION",
+    "E03_NO_FRESH_FLOW",
+    "E04_WRONG_OR_UNKNOWN_INGRESS",
+    "E06_EGRESS_NOT_IN_FEED"
+  ],
+  "timeout_and_retry": {
+    "browser_response_timeout_seconds": 90,
+    "operator_completion_grace_seconds": 600,
+    "maximum_attempts_per_scheduled_slot": 2,
+    "retry_rule": "a retry counts only when it creates a qualifying fresh connection and the predeclared slot permits it",
+    "never_selectively_backfill_after_viewing_results": true,
+    "retain_failed_aborted_and_timed_out_attempts": true
+  },
+  "software_versions": {
+    "controller": "RECORD_BEFORE_FREEZE",
+    "pairing_pipeline": "RECORD_BEFORE_FREEZE",
+    "macos": "RECORD_BEFORE_FREEZE",
+    "safari": "RECORD_BEFORE_FREEZE",
+    "python": "RECORD_BEFORE_FREEZE",
+    "tcpdump": "RECORD_BEFORE_FREEZE",
+    "tshark": "RECORD_BEFORE_FREEZE",
+    "server_caddy": "RECORD_BEFORE_FREEZE",
+    "server_tshark": "RECORD_BEFORE_FREEZE"
+  },
+  "capture": {
+    "client_snaplen_bytes": 256,
+    "promiscuous_mode": false,
+    "name_resolution": false,
+    "scope": "effective_mask_ingress_addresses_tcp_or_udp_port_443_only",
+    "recent_candidate_lookback_days": 1,
+    "recent_candidate_scope": "direct_dns_and_effective_resolver_candidates_from_finalized_attempts_in_current_and_previous_utc_day",
+    "recent_candidates_apply_to": "pinned_and_unpinned_capture_only",
+    "recursive_candidate_inheritance": false,
+    "ingress_attribution_policy": "bounded_candidate_contact_v2",
+    "historical_missing_policy_default": "bounded_candidate_contact_v2",
+    "pinned_capture_scope": "intended_ingress_only",
+    "pinned_acceptance_remains": "intended_ingress_must_be_observed_in_the_attempt_capture",
+    "objective_2_concurrency_rule": "exact_pair_requires_one_ingress_within_the_attempt_specific_attribution_candidate_set",
+    "ingress_attribution_window": "safari_launch_through_selected_caddy_request",
+    "safari_launch_clock_tolerance_seconds": 0,
+    "server_freshness_window": "entire client run interval ending no later than the selected Caddy request",
+    "pcap_truth_overrides_intended_dns": true
+  },
+  "pinning": {
+    "hostnames": [
+      "mask.icloud.com",
+      "mask-h2.icloud.com"
+    ],
+    "approved_pin_file": "config/ingress_pins.yaml",
+    "cname_target": "mask.apple-dns.net",
+    "hosts_file": "/etc/hosts",
+    "restart_networkserviceproxy": true
+  },
+  "targeted_fallback": {
+    "pf_anchor": "com.apple/icpr-step9",
+    "rule_scope": "outbound UDP port 443 to confirmed pinned ingress IPv4 only",
+    "load_rule_before_dns_pin_restart": true,
+    "reset_only_states_to_confirmed_ingress": true,
+    "require_positive_pf_block_counter": true,
+    "measurement_server_udp_443_must_remain_available": true,
+    "require_client_tcp_443_to_pinned_ingress": true,
+    "mask_h2_dns_query_is_supporting_not_required": true,
+    "require_private_relay_egress_at_destination": true,
+    "reject_real_ip_bypass": true
+  },
+  "protocol_outcomes": {
+    "automatic_mixed_delivery": "retain ordered HTTP/3 and TCP deliveries as an explicit secondary outcome under E02",
+    "multiple_same_transport_deliveries": "remain ambiguous under E02",
+    "selected_response": "the operator-copied request UUID selects the displayed response without discarding other attributable deliveries"
+  },
+  "mapping": {
+    "apple_feed_version": "same-day-file-sha256",
+    "apple_feed_format": "native_headerless_ip_prefix,country,region,city,trailing_empty_or_explicit_header",
+    "apple_mapping_method": "longest_prefix_match",
+    "third_party_geoip_is_primary": false,
+    "origin_asn_dataset_version": "REPLACE_WITH_DATED_ORIGIN_DATASET",
+    "origin_asn_file": "reference/asn/origin_prefixes.csv",
+    "multiple_origin_handling": "pending_if_longest_prefix_has_multiple_asns",
+    "operator_map_version": "v1",
+    "operator_map_file": "reference/asn/operator_map.csv",
+    "akamai_sibling_asns": [
+      64500
+    ],
+    "same_operator_rule": "ingress_and_egress_operator_id_equal"
+  },
+  "objective_3_ground_truth": {
+    "true_country_code": "ZZ",
+    "true_time_zone": "Etc/UTC",
+    "country_time_zone_permitted_apple_locations": [
+      {
+        "country": "ZZ",
+        "region": "EXAMPLE",
+        "city": "Example City"
+      }
+    ],
+    "maintain_general_location_boundary": {
+      "boundary_id": "REPLACE_WITH_APPROVED_BOUNDARY_ID",
+      "allowed_country_codes": [
+        "ZZ"
+      ],
+      "allowed_regions": [
+        "EXAMPLE"
+      ],
+      "allowed_cities": [
+        "Example City"
+      ]
+    },
+    "temporal_intersection_rule": {
+      "rule_id": "exact_advertised_field_intersection",
+      "fields": [
+        "country",
+        "region",
+        "city"
+      ],
+      "comparison_normalization": "trim_casefold_preserve_raw"
+    },
+    "distance_is_supporting_only": true,
+    "advertised_location_is_not_physical_location_proof": true,
+    "repeated_unpinned_sequence_is_primary": true
+  },
+  "daily_schedule": {
+    "alternation_anchor_date_utc": "2026-01-01",
+    "session_duration_minutes": 45,
+    "unpinned_before_pinned": true,
+    "unpinned_sequence": [
+      {
+        "location": "maintain_general_location",
+        "fresh_accepted_target": 2
+      },
+      {
+        "location": "country_and_time_zone",
+        "fresh_accepted_target": 2
+      }
+    ],
+    "morning": {
+      "pinned_order_on_odd_days": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "pinned_order_on_even_days": [
+        "D",
+        "C",
+        "B",
+        "A"
+      ]
+    },
+    "daytime": {
+      "pinned_order_on_odd_days": [
+        "B",
+        "C",
+        "D",
+        "A"
+      ],
+      "pinned_order_on_even_days": [
+        "A",
+        "D",
+        "C",
+        "B"
+      ]
+    },
+    "evening": {
+      "pinned_order_on_odd_days": [
+        "D",
+        "C",
+        "B",
+        "A"
+      ],
+      "pinned_order_on_even_days": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ]
+    },
+    "pinned_blocks": {
+      "A": {
+        "ingress_group": "akamai",
+        "location": "maintain_general_location"
+      },
+      "B": {
+        "ingress_group": "apple_as714",
+        "location": "maintain_general_location"
+      },
+      "C": {
+        "ingress_group": "akamai",
+        "location": "country_and_time_zone"
+      },
+      "D": {
+        "ingress_group": "apple_as714",
+        "location": "country_and_time_zone"
+      }
+    },
+    "target_accepted_per_pinned_block": null,
+    "separate_unpinned_and_pinned_outputs": true,
+    "selective_backfill_forbidden": true
+  },
+  "launch_gates": {
+    "G1": "configuration and ground-truth freeze",
+    "G2": "dependencies, inputs, pins, feeds, and dated mapping readiness",
+    "G3": "freshness pilot and privileged mechanism validation",
+    "G4": "hash-verified end-to-end smoke reconstruction before rehearsal"
+  }
+}

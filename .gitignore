@@ -1,0 +1,59 @@
+egress_snapshots/
+
+# Local environments, tool state, OS metadata, and Python caches
+.venv/
+.cache/
+.pytest_cache/
+.mypy_cache/
+.coverage
+.DS_Store
+__pycache__/
+*.py[cod]
+*.log
+*.stderr
+.env
+.env.*
+credentials
+credentials.*
+
+# Local agent and working-note state is not part of the research release.
+.agents/
+.codex/
+.claude/
+.superpowers/
+docs/superpowers/
+AGENTS.md
+HANDOFF.md
+/implementation-status-and-remaining-work.txt
+/dissertation-methodology-draft.txt
+/experiment_configuration_v1.md
+
+# Terraform state and private deployment inputs.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+backend.hcl
+tfplan
+*.tfplan
+
+# Raw network evidence and credentials must be released only after review.
+*.pcap
+*.pcapng
+*.pem
+*.key
+
+# The public repository is methods-only. Study findings, frozen input
+# inventories, and all generated outputs remain local or in separately reviewed
+# data/result releases.
+/egress-catalog-analysis/FINDINGS.md
+/egress-catalog-analysis/snapshot_manifest.csv
+/egress-catalog-analysis/data/MANIFEST.sha256
+/scripts/verify_results.py
+/results/*
+!/results/README.md
+!/results/HOW_TO_USE.md
+!/results/egress-catalogue/
+/results/egress-catalogue/*
+!/results/egress-catalogue/README.md

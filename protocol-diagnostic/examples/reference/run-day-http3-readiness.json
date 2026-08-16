@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "document_type": "icpr_protocol_diagnostic_run_day_http3_readiness",
+  "status": "template_only",
+  "counted_observation": false,
+  "run_id": "REPLACE_WITH_NON_COUNTED_READINESS_RUN_ID",
+  "started_utc": "2030-01-01T00:00:00Z",
+  "completed_utc": "2030-01-01T00:00:00Z",
+  "response_path": "REPLACE_WITH_REPOSITORY_RELATIVE_RESPONSE",
+  "response_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "caddy_path": "REPLACE_WITH_REPOSITORY_RELATIVE_CADDY_LOG",
+  "caddy_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "caddy_snapshot_provenance_path": "REPLACE_WITH_REPOSITORY_RELATIVE_PROVENANCE",
+  "caddy_snapshot_provenance_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "server_pcap_path": "REPLACE_WITH_REPOSITORY_RELATIVE_PCAP",
+  "server_pcap_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "instructions": "Replace and hash this attestation after a non-counted HTTP/3 readiness request has been paired with server log and packet evidence."
+}

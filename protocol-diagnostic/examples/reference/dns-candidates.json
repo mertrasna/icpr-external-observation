@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "document_type": "icpr_protocol_diagnostic_dns_candidate_snapshot",
+  "template_only": true,
+  "purpose": "design_review",
+  "recorded_utc": "2030-01-01T00:00:00Z",
+  "capture_candidates": [
+    "192.0.2.10",
+    "192.0.2.20"
+  ],
+  "candidate_hostname_map": {
+    "192.0.2.10": [
+      "measurement.example.org"
+    ],
+    "192.0.2.20": [
+      "mask-h2.icloud.com",
+      "mask.icloud.com"
+    ]
+  },
+  "fallback_candidate_ipv4": [],
+  "fixed_ingress_ipv4": "192.0.2.20",
+  "origin_public_ipv4": "192.0.2.10",
+  "responses": {},
+  "absence_of_dns_query_is_not_absence_of_fallback": true,
+  "instructions": "Generate a current design-review snapshot with snapshot-candidates before freezing a real profile. Documentation addresses in this file are not live targets."
+}

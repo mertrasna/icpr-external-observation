@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "document_type": "icpr_protocol_diagnostic_campaign_completion_attestation",
+  "status": "template_only",
+  "completed_campaign_days": 0,
+  "campaign_end_date_utc": "2030-01-01",
+  "last_campaign_attempt_utc": "2030-01-01T00:00:00Z",
+  "post_campaign_pull_utc": "2030-01-01T00:00:00Z",
+  "backup_verified": false,
+  "post_campaign_pull_path": "REPLACE_WITH_REPOSITORY_RELATIVE_RECEIPT",
+  "post_campaign_pull_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "final_pairing_command": "./experiment/icpr pair --server-root server/recovery-data",
+  "final_pairs_path": "experiment/derived/pairs_v1.csv",
+  "final_pairs_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "final_pending_mappings": -1,
+  "final_dated_asn_gaps": -1,
+  "dated_asn_gap_report_path": "experiment/derived/pairs_v1.csv",
+  "dated_asn_gap_report_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "instructions": "Replace and hash this attestation only after the prerequisite campaign and archive checks are complete."
+}

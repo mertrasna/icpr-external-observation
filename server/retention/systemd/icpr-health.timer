@@ -1,0 +1,12 @@
+[Unit]
+Description=Hourly iCPR retention health check
+
+[Timer]
+OnBootSec=10m
+OnUnitActiveSec=1h
+Persistent=true
+Unit=icpr-health.service
+
+[Install]
+WantedBy=timers.target
+

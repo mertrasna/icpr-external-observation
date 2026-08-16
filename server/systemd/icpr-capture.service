@@ -1,0 +1,31 @@
+[Unit]
+Description=iCPR rotating HTTPS packet capture
+Documentation=file:/opt/icpr/README.md
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/usr/local/libexec/icpr-capture
+
+[Service]
+Type=simple
+User=root
+Group=root
+UMask=0077
+ExecStart=/usr/local/libexec/icpr-capture
+Restart=on-failure
+RestartSec=5s
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ReadWritePaths=/var/lib/icpr/pcap
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_PACKET AF_INET
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

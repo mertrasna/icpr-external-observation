@@ -1,0 +1,3 @@
+# Local recovery copies can contain measurement data and client identifiers.
+recovery-data/
+

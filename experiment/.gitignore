@@ -1,0 +1,41 @@
+# Raw evidence and local/private inputs must not be committed.
+/FALLBACK_PIN_NOTE.md
+/OPERATOR_RUNBOOK.md
+client/*
+!client/.gitkeep
+server/*
+!server/.gitkeep
+feeds/apple/*
+!feeds/apple/.gitkeep
+derived/*
+!derived/.gitkeep
+reports/*
+!reports/.gitkeep
+manifests/*
+!manifests/.gitkeep
+config/ingress_pins.yaml
+config/ingress_pins.yaml.sha256
+config/experiment_config.yaml
+reference/asn/origin_prefixes.csv
+reference/asn/origin_prefixes.csv.sha256
+reference/asn/operator_map.csv
+reference/asn/operator_map.csv.sha256
+reference/asn/operator_map_v1.csv
+reference/asn/operator_map_v1.csv.sha256
+reference/asn/ripestat-ingress-*.json
+reference/asn/ripestat-ingress-*.json.sha256
+reference/asn/ripestat-egress-*.json
+reference/asn/ripestat-egress-*.json.sha256
+
+# Historical routing evidence belongs in the reviewed data release, not in a
+# blanket source commit. Keep the reconstruction code, schemas, and examples.
+reference/asn/historical-bgp-state-*/
+reference/asn/pending-asn-reconstruction-*.plan.json
+reference/asn/pending-asn-reconstruction-*.plan.json.sha256
+reference/asn/ripestat-network-info-*.json
+reference/asn/ripestat-network-info-*.json.sha256
+
+# Runtime state and Python caches.
+runtime/
+__pycache__/
+*.py[cod]

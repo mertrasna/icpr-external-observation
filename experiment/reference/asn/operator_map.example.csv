@@ -1,0 +1,3 @@
+asn,operator_id,operator_name,mapping_rule,version
+714,apple,Apple Inc.,explicit reviewed AS714 rule,v1
+64500,replace_operator,Replace with reviewed operator,REPLACE_WITH_REVIEWED_PROVENANCE,v1

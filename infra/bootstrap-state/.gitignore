@@ -1,0 +1,27 @@
+# Terraform working data, local state, and plans
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+crash.*.log
+
+# Private input and override files
+*.tfvars
+*.tfvars.json
+!terraform.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Credentials and private keys
+.aws/
+credentials
+credentials.*
+*.pem
+*.key
+
+# Keep the provider dependency lock file in Git
+!.terraform.lock.hcl

@@ -1,0 +1,19 @@
+{
+  "template_only": true,
+  "observation_date_utc": "2030-01-01",
+  "queried_utc": "2030-01-01T00:00:00Z",
+  "instructions": "Replace this file with bounded routing evidence for the selected Private Relay ingress, then update its sidecar and both example configurations.",
+  "responses": [
+    {
+      "data_call_name": "network-info",
+      "data_call_status": "template_only",
+      "status": "replace_before_use",
+      "data": {
+        "asns": [
+          "64496"
+        ],
+        "prefix": "192.0.2.0/24"
+      }
+    }
+  ]
+}
